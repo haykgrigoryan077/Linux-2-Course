@@ -6,6 +6,7 @@
 #include <sys/types.h>
 #include <sys/ipc.h>
 #include <sys/shm.h>
+#include <fcntl.h> 
 
 #define BUFFER_SIZE 100
 #define SHARED_MEMORY_SIZE sizeof(int) * BUFFER_SIZE
@@ -72,3 +73,4 @@ int main() {
     
     return 0;
 }
+
