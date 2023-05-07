@@ -1,8 +1,4 @@
-#include <iostream>
-#include <sys/mman.h>
-#include <fcntl.h>
-#include <unistd.h>
-#include <semaphore.h>
+#include "common.h"
 
 int get_sum(int a, int b)
 {
@@ -29,22 +25,18 @@ int get_divide(int a, int b)
   return a / b;
 }
 
-int SHARED_MEMORY_SIZE = 4 * sizeof(int);
-const char *SHARED_MEMORY_NAME = "/shared_memory";
-const char *SEMAPHORE_NAME = "/my_semaphore";
-const int ADD_ID = 0;
-const int MINUS_ID = 1;
-const int MULTIPLE_ID = 2;
-const int DIVIDE_ID = 3; 
-
 int main()
 {
 
-  sem_t *semaphore = sem_open(SEMAPHORE_NAME, O_CREAT, 0666, 1);
+  sem_t *request_sem = get_semaphore(0, O_CREAT, 0644, 0);
+  log_sem_value("after init request_sem", request_sem);
+  sem_t *result_sem = get_semaphore(1, O_CREAT, 0644, 0);
+  log_sem_value("after init result_sem", result_sem);
 
-  if (semaphore == SEM_FAILED)
+  if (request_sem == SEM_FAILED || result_sem == SEM_FAILED)
   {
-    std::cerr << "Could not create semaphore";
+    std::cerr << "Could not create semaphore\n";
+    exit(EXIT_FAILURE);
   }
 
   int fd = shm_open(SHARED_MEMORY_NAME, O_CREAT | O_RDWR, S_IRUSR | S_IWUSR);
@@ -58,7 +50,7 @@ int main()
     std::cerr << "Could not truncate the shared memory";
   }
 
-  char *shared_memory_pointer = static_cast<char *>(mmap(NULL, SHARED_MEMORY_SIZE, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0));
+  int *shared_memory_pointer = static_cast<int *>(mmap(NULL, SHARED_MEMORY_SIZE, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0));
   if (shared_memory_pointer == MAP_FAILED)
   {
     std::cerr << "Could not map the shared memory";
@@ -66,22 +58,38 @@ int main()
 
   while (true)
   {
-    std::cout << "working";
-    sem_wait(semaphore);
-    if (shared_memory_pointer[0] == ADD_ID) {
-      std::cout << "working";
+    std::cout << "working" << std::endl;
+    if (sem_wait(request_sem) != 0)
+    {
+      perror("sem_wait");
+      exit(EXIT_FAILURE);
+    }
+    std::cout << "incoming args: " << shared_memory_pointer[0] << " "
+              << shared_memory_pointer[1] << " " << shared_memory_pointer[2] << std::endl;
+    sleep(1);
+    if (shared_memory_pointer[0] == ADD_ID)
+    {
+      std::cout << "add\n";
       shared_memory_pointer[3] = get_sum(shared_memory_pointer[1], shared_memory_pointer[2]);
-    } else if (shared_memory_pointer[0] == MINUS_ID) {
+    }
+    else if (shared_memory_pointer[0] == MINUS_ID)
+    {
       shared_memory_pointer[3] = get_minus(shared_memory_pointer[1], shared_memory_pointer[2]);
-    } else if (shared_memory_pointer[0] == MULTIPLE_ID) {
-      shared_memory_pointer[3] = get_minus(shared_memory_pointer[1], shared_memory_pointer[2]);
-    } else if (shared_memory_pointer[0] == DIVIDE_ID) {
+    }
+    else if (shared_memory_pointer[0] == MULTIPLE_ID)
+    {
+      shared_memory_pointer[3] = get_multiply(shared_memory_pointer[1], shared_memory_pointer[2]);
+    }
+    else if (shared_memory_pointer[0] == DIVIDE_ID)
+    {
       shared_memory_pointer[3] = get_divide(shared_memory_pointer[1], shared_memory_pointer[2]);
-    } else {
+    }
+    else
+    {
       std::cerr << "shared_memory_pointer[0] > 3 || shared_memory_pointer[0] < 0";
       break;
     }
-    sem_post(semaphore);
+    sem_post(result_sem);
   }
 
   if (munmap(shared_memory_pointer, SHARED_MEMORY_SIZE) == -1)

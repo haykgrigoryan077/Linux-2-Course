@@ -1,27 +1,20 @@
-#include <iostream>
-#include <cstring>
-#include <sys/mman.h>
-#include <fcntl.h>
-#include <unistd.h>
-#include <semaphore.h>
-
-int SHARED_MEMORY_SIZE = 4 * sizeof(int);
-const char* SHARED_MEMORY_NAME = "/shared_memory";
-const char* SEMAPHORE_NAME = "/my_semaphore";
+#include "common.h"
 
 int main() {
 
-  sem_t* semaphore = sem_open(SEMAPHORE_NAME, O_CREAT, 0666, 0);
+  sem_t *request_sem = get_semaphore(0);
+  sem_t *result_sem = get_semaphore(1);
 
-  if (semaphore == SEM_FAILED) {
-    std::cerr << "Could not create semaphore";
+  if (request_sem == SEM_FAILED || result_sem == SEM_FAILED)
+  {
+    std::cerr << "Could not create semaphore\n";
+    exit(EXIT_FAILURE);
   }
 
-  int fd = shm_open(SHARED_MEMORY_NAME, O_CREAT | O_RDWR, S_IRUSR | S_IWUSR);
+  int fd = shm_open(SHARED_MEMORY_NAME, O_RDWR, S_IRUSR | S_IWUSR);
   if (fd == -1) {
     std::cerr << "Could not open shared memory";
   }
-
 
   if(ftruncate(fd, SHARED_MEMORY_SIZE) == -1) {
     std::cerr << "Could not truncate the memory";
@@ -45,11 +38,9 @@ int main() {
   shared_memory_pointer[1] = firstNumber;
   shared_memory_pointer[2] = secondNumber;
 
-  sem_post(semaphore);
-
-  sem_wait(semaphore);
-
-  sleep(5);
+  sem_post(request_sem);
+  
+  sem_wait(result_sem);
 
   int result = shared_memory_pointer[3];
   std::cout << "The result is " << result << std::endl;
@@ -63,8 +54,6 @@ int main() {
     std::cerr << "Could not unlink the shared memory";
     return 1;
   }
-
-  sem_close(semaphore);
 
   return 0;
 }
