@@ -20,7 +20,7 @@ int main() {
     std::cerr << "Could not truncate the memory";
   }
 
-  int* shared_memory_pointer = static_cast<int*>(mmap(NULL, SHARED_MEMORY_SIZE, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0));
+  Task* shared_memory_pointer = static_cast<Task*>(mmap(NULL, SHARED_MEMORY_SIZE, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0));
   if (shared_memory_pointer == MAP_FAILED) {
     std::cerr << "Could not map the shared memory";
   }
@@ -34,15 +34,15 @@ int main() {
   std::cout << "Please enter numbers" << std::endl;
   std::cin >> firstNumber >> secondNumber;
 
-  shared_memory_pointer[0] = userDescisionID;
-  shared_memory_pointer[1] = firstNumber;
-  shared_memory_pointer[2] = secondNumber;
+  shared_memory_pointer->type = userDescisionID;
+  shared_memory_pointer->arg_1 = firstNumber;
+  shared_memory_pointer->arg_2 = secondNumber;
 
   sem_post(request_sem);
   
   sem_wait(result_sem);
 
-  int result = shared_memory_pointer[3];
+  int result = shared_memory_pointer->result;
   std::cout << "The result is " << result << std::endl;
 
   if (munmap(shared_memory_pointer, SHARED_MEMORY_SIZE) == -1) {

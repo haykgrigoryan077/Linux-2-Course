@@ -50,7 +50,7 @@ int main()
     std::cerr << "Could not truncate the shared memory";
   }
 
-  int *shared_memory_pointer = static_cast<int *>(mmap(NULL, SHARED_MEMORY_SIZE, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0));
+  Task *shared_memory_pointer = static_cast<Task*>(mmap(NULL, SHARED_MEMORY_SIZE, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0));
   if (shared_memory_pointer == MAP_FAILED)
   {
     std::cerr << "Could not map the shared memory";
@@ -64,25 +64,25 @@ int main()
       perror("sem_wait");
       exit(EXIT_FAILURE);
     }
-    std::cout << "incoming args: " << shared_memory_pointer[0] << " "
-              << shared_memory_pointer[1] << " " << shared_memory_pointer[2] << std::endl;
+    std::cout << "incoming args: " << shared_memory_pointer->arg_1 << " "
+              << shared_memory_pointer->arg_2 << " " << shared_memory_pointer->type << std::endl;
     sleep(1);
-    if (shared_memory_pointer[0] == ADD_ID)
+    if (shared_memory_pointer->type == ADD_ID)
     {
       std::cout << "add\n";
-      shared_memory_pointer[3] = get_sum(shared_memory_pointer[1], shared_memory_pointer[2]);
+      shared_memory_pointer->result = get_sum(shared_memory_pointer->arg_1, shared_memory_pointer->arg_2);
     }
-    else if (shared_memory_pointer[0] == MINUS_ID)
+    else if (shared_memory_pointer->type == MINUS_ID)
     {
-      shared_memory_pointer[3] = get_minus(shared_memory_pointer[1], shared_memory_pointer[2]);
+      shared_memory_pointer->result = get_minus(shared_memory_pointer->arg_1, shared_memory_pointer->arg_2);
     }
-    else if (shared_memory_pointer[0] == MULTIPLE_ID)
+    else if (shared_memory_pointer->type == MULTIPLE_ID)
     {
-      shared_memory_pointer[3] = get_multiply(shared_memory_pointer[1], shared_memory_pointer[2]);
+      shared_memory_pointer->result = get_multiply(shared_memory_pointer->arg_1, shared_memory_pointer->arg_2);
     }
-    else if (shared_memory_pointer[0] == DIVIDE_ID)
+    else if (shared_memory_pointer->type == DIVIDE_ID)
     {
-      shared_memory_pointer[3] = get_divide(shared_memory_pointer[1], shared_memory_pointer[2]);
+      shared_memory_pointer->result = get_divide(shared_memory_pointer->arg_1, shared_memory_pointer->arg_2);
     }
     else
     {
