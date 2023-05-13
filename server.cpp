@@ -1,30 +1,5 @@
 #include "common.h"
 
-int get_sum(int a, int b)
-{
-  return a + b;
-}
-
-int get_minus(int a, int b)
-{
-  return a - b;
-}
-
-int get_multiply(int a, int b)
-{
-  return a * b;
-}
-
-int get_divide(int a, int b)
-{
-  if (b == 0)
-  {
-    std::cerr << "Could not divide to 0";
-    return 0;
-  }
-  return a / b;
-}
-
 int main()
 {
 
@@ -58,7 +33,7 @@ int main()
 
   while (true)
   {
-    std::cout << "working" << std::endl;
+    std::cout << "server is working" << std::endl;
     if (sem_wait(request_sem) != 0)
     {
       perror("sem_wait");
@@ -67,22 +42,9 @@ int main()
     std::cout << "incoming args: " << shared_memory_pointer->arg_1 << " "
               << shared_memory_pointer->arg_2 << " " << shared_memory_pointer->type << std::endl;
     sleep(1);
-    if (shared_memory_pointer->type == ADD_ID)
-    {
-      std::cout << "add\n";
-      shared_memory_pointer->result = get_sum(shared_memory_pointer->arg_1, shared_memory_pointer->arg_2);
-    }
-    else if (shared_memory_pointer->type == MINUS_ID)
-    {
-      shared_memory_pointer->result = get_minus(shared_memory_pointer->arg_1, shared_memory_pointer->arg_2);
-    }
-    else if (shared_memory_pointer->type == MULTIPLE_ID)
-    {
-      shared_memory_pointer->result = get_multiply(shared_memory_pointer->arg_1, shared_memory_pointer->arg_2);
-    }
-    else if (shared_memory_pointer->type == DIVIDE_ID)
-    {
-      shared_memory_pointer->result = get_divide(shared_memory_pointer->arg_1, shared_memory_pointer->arg_2);
+
+    if (shared_memory_pointer->type <=3 && shared_memory_pointer->type >= 0) {
+      shared_memory_pointer->execute_task();
     }
     else
     {
