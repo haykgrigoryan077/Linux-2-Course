@@ -1,7 +1,93 @@
 #include "common.h"
+#include <iostream>
+#include <queue>
+#include <vector>
+#include <pthread.h>
+#include <stdio.h>
+#include <unistd.h>
+#include <signal.h>
+#include "common.h"
+
+using namespace std;
+
+class ThreadPool
+{
+private:
+  queue<Task *> taskQueue;
+  pthread_t * threads;
+  int threadsCount;
+  pthread_mutex_t *lock;
+  pthread_cond_t *hasFunction;
+
+public:
+  ThreadPool(int threadsCount)
+  {
+    this->lock = new pthread_mutex_t();
+    this->hasFunction = new pthread_cond_t();
+    if (pthread_mutex_init(lock, nullptr) < 0)
+    {
+      perror("Couldn't init mutex");
+    }
+
+    if (pthread_cond_init(hasFunction, nullptr) < 0)
+    {
+      perror("Couldn't init cond_var");
+    }
+    this->threadsCount = threadsCount;
+    this->threads = new pthread_t[this->threadsCount];
+    for (int i = 0; i < this->threadsCount; i++)
+    {
+      pthread_create(&threads[i], nullptr, execute, this);
+    }
+  }
+
+  ~ThreadPool()
+  {
+    pthread_cond_destroy(hasFunction);
+    pthread_mutex_destroy(lock);
+    for (int i = 0; i < this->threadsCount; i++)
+    {
+      pthread_kill(threads[i], SIGKILL);
+    }
+    delete[] threads;
+  }
+
+  void addTask(Task *task)
+  {
+    pthread_mutex_lock(lock);
+    this->taskQueue.push(task);
+    pthread_mutex_unlock(lock);
+    pthread_cond_signal(hasFunction);
+  }
+
+  // void stop() {
+
+  // }
+
+  static void *execute(void *arg)
+  {
+
+    ThreadPool *threadpool = (ThreadPool *)arg;
+
+    while (true)
+    {
+      pthread_mutex_lock(threadpool->lock);
+      while (threadpool->taskQueue.empty())
+      {
+        pthread_cond_wait(threadpool->hasFunction, threadpool->lock);
+      }
+      Task *task = threadpool->taskQueue.front();
+      threadpool->taskQueue.pop();
+      pthread_mutex_unlock(threadpool->lock);
+      task->execute_task();
+    }
+  }
+};
 
 int main()
 {
+
+  ThreadPool threadpool(5);
 
   sem_t *request_sem = get_semaphore(0, O_CREAT, 0644, 0);
   log_sem_value("after init request_sem", request_sem);
@@ -25,8 +111,8 @@ int main()
     std::cerr << "Could not truncate the shared memory";
   }
 
-  Task *shared_memory_pointer = static_cast<Task*>(mmap(NULL, SHARED_MEMORY_SIZE, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0));
-  if (shared_memory_pointer == MAP_FAILED)
+  Task *currentTask = static_cast<Task *>(mmap(NULL, SHARED_MEMORY_SIZE, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0));
+  if (currentTask == MAP_FAILED)
   {
     std::cerr << "Could not map the shared memory";
   }
@@ -39,22 +125,18 @@ int main()
       perror("sem_wait");
       exit(EXIT_FAILURE);
     }
-    std::cout << "incoming args: " << shared_memory_pointer->arg_1 << " "
-              << shared_memory_pointer->arg_2 << " " << shared_memory_pointer->type << std::endl;
+    std::cout << "incoming args: " << currentTask->arg_1 << " "
+              << currentTask->arg_2 << " " << currentTask->type << std::endl;
     sleep(1);
 
-    if (shared_memory_pointer->type <=3 && shared_memory_pointer->type >= 0) {
-      shared_memory_pointer->execute_task();
-    }
-    else
-    {
-      std::cerr << "shared_memory_pointer[0] > 3 || shared_memory_pointer[0] < 0";
-      break;
-    }
+    // currentTask->execute_task();
+
+    threadpool.addTask(currentTask);
+
     sem_post(result_sem);
   }
 
-  if (munmap(shared_memory_pointer, SHARED_MEMORY_SIZE) == -1)
+  if (munmap(currentTask, SHARED_MEMORY_SIZE) == -1)
   {
     std::cerr << "Could not map the shared memory";
     return 1;
